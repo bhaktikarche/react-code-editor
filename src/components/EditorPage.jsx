@@ -14,11 +14,15 @@ function EditorPage() {
   const location = useLocation();
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const [code, setCode] = useState('');
   const { username, language } = location.state || {};
 
   const handleCodeChange = (newCode) => {
-    setCode(newCode);
+    codeRef.current = newCode;
+    localStorage.setItem(`code-${roomId}`, newCode);
+    socketRef.current?.emit('code-change', {
+      roomId,
+      code: newCode
+    });
   };
 
   useEffect(() => {
@@ -36,10 +40,14 @@ function EditorPage() {
       socketRef.current.on('connect_error', handleError);
       socketRef.current.on('connect_failed', handleError);
 
+      const savedCode = localStorage.getItem(`code-${roomId}`) || '';
+      codeRef.current = savedCode;
+
       socketRef.current.emit('join', {
         roomId,
         username,
-        language
+        language,
+        code: savedCode
       });
 
       socketRef.current.on('joined', ({ clients, username, socketId }) => {
@@ -70,21 +78,25 @@ function EditorPage() {
         }
       });
 
-      socketRef.current.on('sync-code', ({ code, language: syncLanguage }) => {
-        if (code) {
-          codeRef.current = code;
-        }
-      });
-
-      socketRef.current.on('code-change', ({ code }) => {
-        if (code !== null) {
+      socketRef.current.on('sync-code', ({ code }) => {
+        if (code && code !== codeRef.current) {
           codeRef.current = code;
           if (editorRef.current) {
             editorRef.current.setValue(code);
           }
+          localStorage.setItem(`code-${roomId}`, code);
         }
       });
-      
+
+      socketRef.current.on('code-change', ({ code }) => {
+        if (code !== null && code !== codeRef.current) {
+          codeRef.current = code;
+          if (editorRef.current) {
+            editorRef.current.setValue(code);
+          }
+          localStorage.setItem(`code-${roomId}`, code);
+        }
+      });
     };
 
     init();
@@ -98,6 +110,7 @@ function EditorPage() {
         socketRef.current.off('connect_failed');
         socketRef.current.off('request-code');
         socketRef.current.off('sync-code');
+        socketRef.current.off('code-change');
       }
     };
   }, [roomId, navigate, location.state]);
@@ -116,14 +129,9 @@ function EditorPage() {
   };
 
   const leaveRoom = () => {
+    localStorage.removeItem(`code-${roomId}`);
     navigate("/");
   };
-
-  const onCodeChange = (code) => {
-  codeRef.current = code;
-  setCode(code);
-};
-
 
   return (
     <div className="container-fluid vh-100">
@@ -157,14 +165,14 @@ function EditorPage() {
         </div>
 
         <div className="col-md-10 text-light d-flex flex-column h-100">
-                <Editor
-          socketRef={socketRef}
-          roomId={roomId}
-          language={language}
-          onCodeChange={onCodeChange}
-          editorRef={editorRef}
-        />
-
+          <Editor
+            socketRef={socketRef}
+            roomId={roomId}
+            language={language}
+            onCodeChange={handleCodeChange} 
+            editorRef={editorRef}
+            initialCode={codeRef.current}
+          />
         </div>
       </div>
     </div>

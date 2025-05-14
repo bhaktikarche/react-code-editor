@@ -6,7 +6,7 @@ import 'codemirror/mode/javascript/javascript';
 import 'codemirror/mode/python/python';
 import 'codemirror/addon/edit/closebrackets';
 import 'codemirror/addon/edit/closetag';
-import './editor.css';
+import './Editor.css';
 
 function Editor({ socketRef, roomId, onCodeChange, language, editorRef }) {
   const editorContainerRef = useRef(null);
@@ -14,48 +14,46 @@ function Editor({ socketRef, roomId, onCodeChange, language, editorRef }) {
   const [pyodide, setPyodide] = useState(null);
   const [isPyodideLoading, setIsPyodideLoading] = useState(false);
 
-  const handleCodeChange = useCallback((code) => {
-    onCodeChange(code);
-  }, [onCodeChange]);
+  const handleCodeChange = useCallback(
+    (code) => {
+      onCodeChange(code);
+      localStorage.setItem(`code-${roomId}`, code);
+    },
+    [onCodeChange, roomId]
+  );
 
   useEffect(() => {
-    if (language === 'python' && !pyodide && !isPyodideLoading && typeof window !== 'undefined') {
+    const loadPyodideScript = async () => {
+      if (language !== 'python' || pyodide) return;
+
       setIsPyodideLoading(true);
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js';
-      script.async = true;
-
-      script.onload = async () => {
-        try {
-          const pyodideInstance = await window.loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/',
-          });
-          setPyodide(pyodideInstance);
-        } catch (err) {
-          console.error('Pyodide loading error:', err);
-          setOutput('Failed to load Python runtime.');
-        } finally {
-          setIsPyodideLoading(false);
-        }
-      };
-
-      script.onerror = () => {
+      try {
+        const pyodideModule = await window.loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/',
+        });
+        setPyodide(pyodideModule);
+      } catch (err) {
+        console.error('Failed to load Pyodide:', err);
+      } finally {
         setIsPyodideLoading(false);
-        setOutput('Failed to load Pyodide. Check your internet.');
-      };
+      }
+    };
 
+    if (language === 'python' && !window.loadPyodide) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js';
+      script.onload = loadPyodideScript;
       document.body.appendChild(script);
-
-      return () => {
-        document.body.removeChild(script);
-      };
+    } else {
+      loadPyodideScript();
     }
-  }, [language, pyodide, isPyodideLoading]);
+  }, [language, pyodide]);
 
   useEffect(() => {
+    const savedCode = localStorage.getItem(`code-${roomId}`) || '';
     if (!editorRef.current) {
       editorRef.current = CodeMirror(editorContainerRef.current, {
-        value: '',
+        value: savedCode,
         mode: language === 'python' ? 'python' : 'javascript',
         theme: 'material',
         lineNumbers: true,
@@ -92,29 +90,29 @@ function Editor({ socketRef, roomId, onCodeChange, language, editorRef }) {
   }, [socketRef, roomId, language, handleCodeChange, editorRef]);
 
   const runCode = async () => {
-  const code = editorRef.current?.getValue() || '';
-  let result = '';
+    const code = editorRef.current?.getValue() || '';
+    let result = '';
 
-  if (language === 'javascript') {
-    const originalConsoleLog = console.log;
-    try {
-      console.log = (...args) => {
-        result += args.join(' ') + '\n';
-      };
-      const res = eval(code);
-      if (res !== undefined) result += res + '\n';
-    } catch (err) {
-      result = err.message;
-    } finally {
-      console.log = originalConsoleLog;
-    }
-  } else if (language === 'python') {
-    if (!pyodide) {
-      result = 'Python interpreter is loading...';
-    } else {
+    if (language === 'javascript') {
+      const originalConsoleLog = console.log;
       try {
-        await pyodide.loadPackagesFromImports(code);
-        const captureOutput = `
+        console.log = (...args) => {
+          result += args.join(' ') + '\n';
+        };
+        const res = eval(code);
+        if (res !== undefined) result += res + '\n';
+      } catch (err) {
+        result = err.message;
+      } finally {
+        console.log = originalConsoleLog;
+      }
+    } else if (language === 'python') {
+      if (!pyodide) {
+        result = 'Python interpreter is loading...';
+      } else {
+        try {
+          await pyodide.loadPackagesFromImports(code);
+          const captureOutput = `
 import sys
 import io
 stdout = sys.stdout
@@ -125,17 +123,16 @@ try:
 finally:
   sys.stdout = stdout
 output
-        `;
-        result = await pyodide.runPythonAsync(captureOutput);
-      } catch (err) {
-        result = err.message;
+          `;
+          result = await pyodide.runPythonAsync(captureOutput);
+        } catch (err) {
+          result = err.message;
+        }
       }
     }
-  }
 
-  setOutput(result?.toString().trim());
-};
-
+    setOutput(result?.toString().trim());
+  };
 
   return (
     <div className="editor-container">
@@ -144,11 +141,14 @@ output
         <button
           onClick={runCode}
           className="btn btn-success mb-2"
-          disabled={language === 'python' && !pyodide}
+          disabled={language === 'python' && (!pyodide || isPyodideLoading)}
         >
           {language === 'python' && isPyodideLoading ? 'Loading Python...' : 'Run Code'}
         </button>
-        <div className="output-box bg-dark text-light p-3 rounded" style={{ minHeight: '100px', whiteSpace: 'pre-wrap' }}>
+        <div
+          className="output-box bg-dark text-light p-3 rounded"
+          style={{ minHeight: '100px', whiteSpace: 'pre-wrap' }}
+        >
           <strong>Output:</strong>
           <pre>{output}</pre>
         </div>
