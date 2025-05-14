@@ -139,8 +139,8 @@ function EditorPage() {
         <div className="col-md-2 bg-dark text-light d-flex flex-column h-100" style={{ boxShadow: "2px 0px 4px rgba(0,0,0,0.1)" }}>
           <img
             className="img-fluid mx-auto"
-            src="/images/CodeSync.png"
-            alt="Codesync"
+            src="\images\teamscript.png"
+            alt="TeamScript"
             style={{ maxWidth: '150px', marginTop: "0px" }}
           />
 

@@ -40,8 +40,8 @@ function Home() {
                 <div className="card-body text-center bg-dark">
                   <img
                     className="img-fluid mx-auto d-block"
-                    src="/images/CodeSync.png"
-                    alt="Codesync"
+                    src="\images\teamscript.png"
+                    alt="TeamScript"
                     style={{ maxWidth: '150px' }}
                   />
 
