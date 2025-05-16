@@ -49,9 +49,11 @@ function Editor({ socketRef, roomId, onCodeChange, language, editorRef }) {
     }
   }, [language, pyodide]);
 
+  // Initialize CodeMirror once
   useEffect(() => {
-    const savedCode = localStorage.getItem(`code-${roomId}`) || '';
-    if (!editorRef.current) {
+    if (!editorRef.current && editorContainerRef.current) {
+      const savedCode = localStorage.getItem(`code-${roomId}`) || '';
+
       editorRef.current = CodeMirror(editorContainerRef.current, {
         value: savedCode,
         mode: language === 'python' ? 'python' : 'javascript',
@@ -75,64 +77,74 @@ function Editor({ socketRef, roomId, onCodeChange, language, editorRef }) {
           });
         }
       });
+    }
 
-      socketRef.current?.on('code-change', ({ code }) => {
-        const currentCode = editorRef.current.getValue();
-        if (code !== currentCode) {
-          editorRef.current.setValue(code);
+    const socket = socketRef.current;
+    if (socket) {
+      const handleCodeChangeFromSocket = ({ code }) => {
+        const currentCode = editorRef.current?.getValue();
+        if (code && code !== currentCode) {
+          editorRef.current?.setValue(code);
         }
-      });
+      };
 
-      socketRef.current?.on('sync-code', ({ code }) => {
-        if (code) editorRef.current.setValue(code);
-      });
+      socket.on('code-change', handleCodeChangeFromSocket);
+      socket.on('sync-code', handleCodeChangeFromSocket);
+
+      return () => {
+        socket.off('code-change', handleCodeChangeFromSocket);
+        socket.off('sync-code', handleCodeChangeFromSocket);
+      };
     }
   }, [socketRef, roomId, language, handleCodeChange, editorRef]);
 
-  const runCode = async () => {
-    const code = editorRef.current?.getValue() || '';
-    let result = '';
+const runCode = async () => {
+  const code = editorRef.current?.getValue() || '';
+  let result = '';
 
-    if (language === 'javascript') {
-      const originalConsoleLog = console.log;
+  if (language === 'javascript') {
+    const logs = [];
+    const originalConsoleLog = console.log; // <-- Declare it outside
+    try {
+      console.log = (...args) => {
+        logs.push(args.join(' '));
+      };
+      eval(code); // Only capture console.log output
+      result = logs.join('\n');
+    } catch (err) {
+      result = err.message;
+    } finally {
+      console.log = originalConsoleLog; // Now this works correctly
+    }
+  } else if (language === 'python') {
+    if (!pyodide) {
+      result = 'Python interpreter is loading...';
+    } else {
       try {
-        console.log = (...args) => {
-          result += args.join(' ') + '\n';
-        };
-        const res = eval(code);
-        if (res !== undefined) result += res + '\n';
-      } catch (err) {
-        result = err.message;
-      } finally {
-        console.log = originalConsoleLog;
-      }
-    } else if (language === 'python') {
-      if (!pyodide) {
-        result = 'Python interpreter is loading...';
-      } else {
-        try {
-          await pyodide.loadPackagesFromImports(code);
-          const captureOutput = `
+        await pyodide.loadPackagesFromImports(code);
+        const wrappedCode = `
 import sys
 import io
 stdout = sys.stdout
 sys.stdout = io.StringIO()
 try:
-  exec(\"\"\"${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}\"\"\")
+  exec("""${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}""")
   output = sys.stdout.getvalue()
 finally:
   sys.stdout = stdout
 output
-          `;
-          result = await pyodide.runPythonAsync(captureOutput);
-        } catch (err) {
-          result = err.message;
-        }
+        `;
+        result = await pyodide.runPythonAsync(wrappedCode);
+      } catch (err) {
+        result = err.message;
       }
     }
+  }
 
-    setOutput(result?.toString().trim());
-  };
+  setOutput(result?.toString().trim());
+};
+
+
 
   return (
     <div className="editor-container">
