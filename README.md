@@ -1,12 +1,124 @@
-# React + Vite
+# 🧑‍💻 TeamScript – Real-Time Collaborative Code Editor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**TeamScript** is a real-time collaborative code editor built with **React (Vite + JS)**, **CodeMirror**, and **Socket.IO**, enabling developers to write code synchronously in a shared room. It supports both **JavaScript** and **Python**, and allows users to execute code within the editor itself using `eval()` and `Pyodide`.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## Expanding the ESLint configuration
+- 🧑‍🤝‍🧑 Multi-user real-time collaboration using Socket.IO
+- 💡 Syntax highlighting for JavaScript and Python (via CodeMirror)
+- 🔁 Live sync across all clients in the same room
+- 🧠 Run JavaScript using browser’s `eval()` and Python using [Pyodide](https://pyodide.org/)
+- 🧾 Save and restore code from local storage per room
+- 🎭 Show connected users with avatars
+- 🔒 Isolated rooms using unique `roomId`
+- 📋 Copy Room ID to clipboard
+- 🔚 Leave Room functionality
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🧱 Tech Stack
+
+| Frontend              | Backend                             |
+| --------------------- | ----------------------------------- |
+| React + Vite + JS    | Node.js + Express                   |
+| CodeMirror (Editor)   | Socket.IO                           |
+| Pyodide (Python exec) | `react-hot-toast` for notifications |
+
+---
+
+## 📦 Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/bhaktikarche/react-code-editor.git
+cd react-code-editor
+
+# Install dependencies
+npm install
+```
+
+---
+
+## 🧪 Running Locally
+
+```bash
+npm run dev
+```
+
+By default, the app runs at `http://localhost:5173` (Vite default).
+
+---
+
+## 🔧 Folder Structure
+
+```
+src/
+├── components/
+│   ├── Editor.jsx          # Main code editor logic (CodeMirror, Pyodide)
+│   ├── Client.jsx          # Shows connected user avatars
+│   ├── Avatar.jsx          # Avatar component for initials
+│   ├── socket.js           # Initializes socket connection
+│   ├── EditorPage.jsx      # Main page with editor + user sidebar
+│   ├── Home.jsx            # Landing / join room page
+```
+
+---
+
+## 🧠 How It Works
+
+- When a user joins a room, a `join` event is emitted.
+- Existing clients emit the saved code using `send-code`.
+- All edits are sent using `code-change` and synced across users.
+- Code is stored in `localStorage` to persist per-room state.
+- Python execution is handled via the `pyodide` runtime.
+
+---
+
+## 🎯 Available Scripts
+
+```bash
+npm run dev        # Start Vite dev server
+npm run build      # Production build
+```
+
+---
+
+## 🧪 Supported Languages
+
+- **JavaScript**
+  - Uses `eval()` (safe for local testing only)
+- **Python**
+  - Uses `Pyodide` (WASM-based Python in the browser)
+  - Auto-loads packages based on imports
+
+---
+
+## 💬 Room Management
+
+- Each session is identified via `roomId`
+- You can copy the Room ID and share it with other users
+- When users leave, they are removed from the connected client list
+
+---
+
+## 🛡️ Disclaimer
+
+- Running user code (`eval()` / Pyodide) is not sandboxed and may be **unsafe**.
+  Use it **only in trusted environments** or with additional restrictions.
+
+---
+
+## 📄 License
+
+This project is open-sourced under the [MIT License](LICENSE).
+
+---
+
+## 🙌 Acknowledgements
+
+- [CodeMirror](https://codemirror.net/)
+- [Pyodide](https://pyodide.org/)
+- [React Hot Toast](https://react-hot-toast.com/)
+- [Socket.IO](https://socket.io/)
